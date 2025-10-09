@@ -20,9 +20,11 @@
 | directive | 설명 | 용도 |
 | --- | --- | --- |
 | page | - JSP 페이지에 대한 기본 정보 지정
-- 문서의 타입, 출력 버퍼의 크기, 에러페이지 설정 등 | 모든 JSP 필수 |
+|문서의 타입, 출력 버퍼의 크기, 에러페이지 설정 등 | 모든 JSP 필수 |
 | taglib | - JSP 페이지에서 사용할 태그 라이브러리 지정 | JSTL |
 | include | - JSP 페이지의 특정 영역에 다른 문서 포함 | page 모듈화 및 재사용 |
+
+---
 
 | 속성 | 기본 값 | 설명 | 사용 예 |
 | --- | --- | --- | --- |
@@ -76,9 +78,28 @@
 
 ### 사용방법
 
-| 메서드                                           | 반환 타입                 | 매개변수     | 역할                                 | 예시                                                                                                                                                                        | 비고                               |
-| :-------------------------------------------- | :-------------------- | :------- | :--------------------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | :------------------------------- |
-| **`setAttribute(String name, Object value)`** | `void`                | 속성 이름, 값 | 해당 스코프에 데이터를 **저장**                | `request.setAttribute("user", "taeha");`                                                                                                                                  | 기존 이름이 있으면 덮어씀                   |
-| **`getAttribute(String name)`**               | `Object`              | 속성 이름    | 해당 스코프에서 데이터를 **조회**               | `String user = (String)request.getAttribute("user");`                                                                                                                     | 없으면 `null` 반환                    |
-| **`removeAttribute(String name)`**            | `void`                | 속성 이름    | 해당 스코프에서 데이터를 **삭제**               | `session.removeAttribute("user");`                                                                                                                                        | 삭제 후 `getAttribute()`는 `null` 반환 |
-| **`getAttributeNames()`**                     | `Enumeration<String>` | (없음)     | 해당 스코프에 저장된 모든 속성 이름을 **열거형으로 반환** | <pre><code>Enumeration<String> names = request.getAttributeNames();<br>while(names.hasMoreElements()) {<br>    System.out.println(names.nextElement());<br>}</code></pre> | 속성 이름 전체 탐색 가능                   |
+1. ```void setAttribute(String name, Object value)```
+- **역할:** 해당 스코프에 데이터를 저장  
+- **예시:** `request.setAttribute("user", "taeha");`  
+- **비고:** 같은 이름이 있으면 덮어씀  
+
+---
+
+2. ```Object getAttribute(String name)```
+- **역할:** 해당 스코프에서 데이터를 조회  
+- **예시:** `String user = (String) request.getAttribute("user");`  
+- **비고:** 없으면 `null` 반환  
+
+---
+
+3. ```void removeAttribute(String name)```
+- **역할:** 해당 스코프에서 데이터를 삭제  
+- **예시:** `session.removeAttribute("user");`  
+- **비고:** 삭제 후 `getAttribute()`는 `null` 반환  
+
+---
+
+4. ```getAttributeNames()```
+- **반환 타입:** Enumeration&lt;String&gt;  
+- **매개변수:** 없음  
+- **역할:** 스코프에 저장된 모든 속성 이름을 열거형으로 반환  
