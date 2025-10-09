@@ -116,3 +116,35 @@
 ## 3-3. Front Controller 작성
 
 <img src="./img/4.png">
+
+# 4. Filter
+
+<img src="./img/5.png">
+
+## 4-1. 주요 용도
+
+- 인증, 인가
+	- 사용자가 특정 페이지에 접근하기 전 로그인 여부(인증), 권한 여부(인가)
+
+- 로깅
+	- 요청 및 응답 추적
+	- 문제 해결 및 사용자의 행동 분석
+
+- 보안
+	- XSS 공격(크로스 사이트 스크립트 공격) 등을 방지하기 위한 입력 값 검증 등
+
+## 4-2. Filter 작성
+- servlet: filter 를 적용할 servlet 특정
+- URL 패턴: url 기반으로 filter 적용 대상 설정
+	- 경로 기반, 확장자 기반
+
+## Select Dispatcher: filter 를 적용할 시점
+- ```request```: 클라이언트 직접 요청인 경우 적용(기본 값)
+- ```forward```: forward() 를 통해 이동하는 경우에 적용. client 요청을 간접적으로 받는 경우
+- ```error```: 에러 페이지로 전달 시
+
+## 4-3. 생명 주기
+
+<img src="./img/6.png">
+
+
