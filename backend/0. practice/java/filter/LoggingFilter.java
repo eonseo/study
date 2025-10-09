@@ -1,5 +1,3 @@
-package com.ssafy.live.filter;
-
 import java.io.IOException;
 import java.util.Arrays;
 

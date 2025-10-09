@@ -1,5 +1,3 @@
-package com.ssafy.live.controller;
-
 import java.io.IOException;
 import java.net.URLEncoder;
 import java.util.List;
