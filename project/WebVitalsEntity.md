@@ -14,6 +14,11 @@
      - 3-1-4. TABLE
      - 3-1-5. UUID
 4. WebVitalsEntity 코드 설명
+5. 피드백
+	- 5-1. test_id 를 PK 이자 FK 로 매핑
+	- 5-2. 팩토리 메서드로 생성방식 통일
+	- 5-3. Instant 로 시간 타입 통일
+	- 5-4. 지표값 검증
 
 # 1. Entity 란?
 
@@ -296,3 +301,125 @@ User user = User.builder()
 ```
 
 - 엔터티가 처음 생성될 때의 시간을 자동으로 넣어줌
+
+# 5. 피드백
+```plain text
+1. web_vitals.id를 별도 UUID 자동생성으로 두면 test_id가 PK라는 모델과 충돌하니까
+→@mapsid + @OnetoOne로 test_id를 PK이자 FK로 매핑하기
+
+2. 생성 방식은 팩토리 메서드로 통일(Builder는 외부 노출 X, Test entity 참고)
+
+3. 시간 타입은 프로젝트 전반에 하나로 통일(OffsetDateTime가 아닌 Instant로 변경하기)
+
+4. 지표값(Double) 검증(음수 불가, NaN 불가)하는 메서드 엔티티에 추가하기
+```
+
+## 5-1. test_id 를 PK 이자 FK 로 매핑
+
+```java
+@Id // 이 필드가 PK 임
+private UUID testId;
+
+@MapsId // TestEntity 의 ID 를 자동 매핑
+@OneToOne(fetch = FetchType.LAZY) // WebVitals Entity 하나는 TestEntity 하나랑만 연결됨(1:1 관계), 필요할 때만 연결
+@JoinColumn(name = "test_id") // DB 테이블에서 실제 FK 컬럼명 지정
+private TestEntity test;
+```
+
+### FetchType 예시
+
+학생 정보와 성적표가 각각 있다고 생각해보자.
+
+```EAGER``` 은 즉시 불러오기로, 성적표를 들고올 때 학생에 대한 정보도 무조건 같이 들고온다. 불필요한 데이터도 한 번에 같이 들고 올 수 있다는 단점이 있다. 예를 들어, 성적만 보면 되는데 학생의 이름, 전화번호, 성별 등등에 대한 정보도 함께 들고 와버리는 것!
+
+```LAZY```는 지연 불러오기로, 필요할 때만 불러온다. 예를 들어, 지금은 점수만 가져오고, 나중에 학생의 이름이 필요하면 	```WebVitalsEntity.getTest().getName()```과 같은 식으로 불러온다.
+
+| 설정      | 언제 불러옴    | 비유                        |
+| ------- | --------- | ------------------------- |
+| `EAGER` | 지금 바로     | 성적표랑 학생을 한꺼번에 들고 옴        |
+| `LAZY`  | 나중에 필요할 때 | 성적표만 먼저, 학생은 나중에 필요할 때 요청 |
+
+## 5-2. 팩토리 메서드로 생성방식 통일
+
+### 5-2-1. 팩토리 메서드란?
+
+- 생성 로직을 클래스 내부로 캡슐화 하는 방식
+- 외부에서는 new 키워드로 직접 생성 X
+- ```create()``` 나 ```of()``` 같은 정적 메서드를 통해 생성
+
+### 5-2-2. 빌더란?
+
+- 메서드 체이닝 방식으로 하나씩 값을 채운 뒤 ```build()``` 로 완성
+- 필드가 많거나, 선택적인 값이 여러 개일 때 객체를 유연하고 가독성 좋게 생성하는 방법
+
+### 정리
+| 구분    | 팩토리 메서드 🏭                              | 빌더 🧱                                            |
+| ----- | --------------------------------------- | ------------------------------------------------ |
+| 개념    | 공장에서 만들어주는 방식                           | 레고처럼 조립해서 완성하는 방식                                |
+| 코드 형태 | `User.create("홍길동", 20)`                | `User.builder().name("홍길동").age(20).build()`     |
+| 장점    | - 코드 간결함<br>- 생성 과정 숨김<br>- 정해진 규칙대로 생성 | - 필드 많을 때 유리<br>- 선택적 인자 처리 용이<br>- 가독성 좋음       |
+| 단점    | - 인자가 많으면 헷갈림<br>- 오버로딩 많아짐             | - Builder 클래스를 노출해야 함<br>- 코드가 길어짐               |
+| 사용 시점 | 단순하거나 명확한 생성 규칙일 때                      | 옵션이 많거나 생성 과정이 복잡할 때                             |
+| 예시    | `Order.createPaidOrder()`               | `Order.builder().item("커피").price(3000).build()` |
+
+```java
+// WebVitalsEntity.create() 로 호출 가능
+// new 로 직접 만드는 것 금지
+public static WebVitalsEntity create(TestEntity test, Double lcp, Double cls, Double inp, Double fcp, Double tbt, Double ttfb) {
+		// 유효성 검사
+        validateMetricValue(lcp, "LCP");
+        validateMetricValue(cls, "CLS");
+        validateMetricValue(inp, "INP");
+        validateMetricValue(fcp, "FCP");
+        validateMetricValue(tbt, "TBT");
+        validateMetricValue(ttfb, "TTFB");
+
+		// 안에서는 builder 로 조립
+		// 외부에서는 감춰져 있음
+        return WebVitalsEntity.builder()
+                .test(test)  // @MapsId를 사용하므로 test만 설정하면 testId는 자동으로 매핑됨
+                .lcp(lcp)
+                .cls(cls)
+                .inp(inp)
+                .fcp(fcp)
+                .tbt(tbt)
+                .ttfb(ttfb)
+                .build();
+    }
+```
+
+- WebVitalsEntity 를 안전하고 일관된 방식으로 만듦
+
+## 5-3. Instant 로 시간 타입 통일
+
+### OffsetDateTime vs Instant
+
+| 구분      | 🕐 `OffsetDateTime`                  | ⚡ `Instant`                                       |
+| ------- | ------------------------------------ | ------------------------------------------------- |
+| 개념      | “날짜 + 시간 + 시차(Offset)” 를 함께 표현       | “UTC 기준의 한 순간(절대 시점)” 을 표현                        |
+| 포함 정보   | 날짜, 시각, **UTC로부터의 시차(±9:00 등)**      | UTC 기준 초/나노초 (시차 정보 없음)                           |
+| 예시 값    | `2025-10-23T12:00:00+09:00`          | `2025-10-23T03:00:00Z`                            |
+| 기준      | 지역(Offset)에 따라 다름                    | 전 세계 공통 (UTC 고정)                                  |
+| 용도      | 특정 지역 시간 표현 (예: 한국 시간, 미국 시간)        | 서버 간 시간 동기화, 로그 타임스탬프 등                           |
+| 변환      | `.toInstant()` 로 UTC 기준 시간으로 바꿀 수 있음 | `.atOffset(ZoneOffset.ofHours(9))` 으로 지역 시간 변환 가능 |
+| 직관적인 비유 | “한국 시각 오전 9시”                        | “전 세계 공통 시계로 본 한 순간”                              |
+
+## 5-4. 지표값 검증
+
+```java
+private static void validateMetricValue(Double value, String metricName) {
+        if (value == null) {
+            return;
+        }
+        if (Double.isNaN(value)) {
+            throw new IllegalArgumentException(metricName + " 값은 NaN 일 수 없습니다.");
+        }
+        if (value < 0) {
+            throw new IllegalArgumentException(metricName + " 값은 음수일 수 없습니다. 입력값: " + value);
+        }
+    }
+```
+
+- ```value```: 검사할 성능 지표 값
+- ```metricName```: 지표 이름
+- ```IllegalArgumentException```: 비정상적인 값이 들어오는 경우 예외 던짐. 비정상의 기준은 개발자가 정한다. 여기서는 null, NaN, 음수가 된다.
