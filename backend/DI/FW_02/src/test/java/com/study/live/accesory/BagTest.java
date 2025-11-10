@@ -27,5 +27,6 @@ public class BagTest {
 	public void bagTest() {
 		Bag bag = ctx.getBean(Bag.class);
 		Assertions.assertNotNull(bag); // bag 이라는 변수가 null 이면 테스트 실패
+		System.out.println("success");
 	}
 }

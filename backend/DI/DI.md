@@ -7,6 +7,10 @@
 3. [Spring Framework의 역할](#3-spring-framework의-역할)
 4. [명시적 DI - @Configuration과 @Bean](#4-명시적-di---configuration과-bean)
 5. [Bean 생명주기](#5-bean-생명주기)
+6. [묵시적 DI](#6-묵시적-di)
+7. [스트레오타입 애너테이션](#7-스트레오타입-애너테이션)
+8. [DI 방법의 비교](#8-di-방법의-비교)
+9. [Appendix](#9-appendix)
 
 ---
 
@@ -318,16 +322,69 @@ public class WasherTest {
 - 각 단계마다 콜백 메서드로 커스터마이징 가능
 - 자동으로 정리 작업 수행
 
-### Bean 생명주기
+### 5.2 초기화 및 소멸 메서드
 
-- 컨테이너 생성 → 빈 생성 → 의존성 주입 → 초기화 → 사용 → 소멸 → 종료
+**요약**
+
+- 컨테이너 생성 → 빈 생성 → 의존성 주입 → 초기화 → 사용(ctx.getBean(..)) → 소멸 → 종료
 - 스프링이 전체 생명주기 관리
 
-### 6. 묵시적 DI
+**초기화/소멸 메서드 비교표**
 
-- 명시적 DI 처럼 `@Configuration` 에서 `@Bean` 을 사용하지 않는 형태
+| 구분          | 초기화 메서드 (Initialization Method)                                                        | 소멸 메서드 (Destroy Method)                                                                 |
+| :------------ | :------------------------------------------------------------------------------------------- | :------------------------------------------------------------------------------------------- |
+| **주요 용도** | 빈에서 사용하려는 **자원의 초기화**.                                                         | 빈에서 사용한 **자원의 정리**.                                                               |
+| **호출 시점** | 의존성 주입 후 **비즈니스 로직이 호출되기 전**.                                              | **모든 비즈니스 로직이 종료된 후**.                                                          |
+| **작성 방법** | **묵시적 빈 등록**: `@PostConstruct` 적용<br>**명시적 빈 등록**: `@Bean`의 `initMethod` 속성 | **묵시적 빈 등록**: `@PreDestroy` 적용<br>**명시적 빈 등록**: `@Bean`의 `destroyMethod` 속성 |
+| **주의 사항** | 메서드는 **파라미터가 없어야** 한다.                                                         | 메서드는 **파라미터가 없어야** 한다.                                                         |
 
-#### `@Component`
+**참고사항**
+
+- `@PostConstruct`, `@PreDestroy` 사용을 위해서는 `jakarta.annotation-api` 필요
+
+### 5.3 예시 코드
+
+#### 묵시적 빈 등록
+
+```java
+@Component
+@Scope
+
+public class Bag {
+    //...
+    @PostConstruct
+    public void setup() {
+        System.out.println("캐리어 청소 !");
+    }
+
+    @PreDestroy
+    public void destroy() {
+        System.out.println("제자리로 !");
+    }
+}
+```
+
+#### 명시적 빈 등록
+
+```java
+@Bean(initMethod = "setup", destroyMethod = "destroy")
+public SWasher sWasher() {
+    return new SWasher();
+}
+```
+
+---
+
+## 6. 묵시적 DI
+
+### 6.1 묵시적 DI란?
+
+**정의**
+
+- 명시적 DI처럼 `@Configuration`에서 `@Bean`을 사용하지 않는 형태
+- `@Component`와 `@Autowired`를 사용하여 자동으로 빈을 등록하고 주입
+
+### 6.2 @Component
 
 - 빈으로 사용할 각각의 클래스들에 @Component 표시
 
@@ -348,7 +405,7 @@ ex2. SWasher ->SWasher
 
 - @Component 의 value 속성으로 재정의 가능
 
-#### `@Autowired`
+### 6.3 @Autowired
 
 - 빈을 주입하기 위해 사용되는 어노테이션
 - 타입(클래스 종류)기반 주입. 타입을 보고 알아서 해당 타입의 빈을 컨테이너에서 찾음.
@@ -427,10 +484,18 @@ public class HeroUser {
 | **개방-폐쇄 원칙 (OCP)** | IronMan 대신 Hulk, Thor로 바꿔도 HeroUser는 수정할 필요 없음         |
 | **캡슐화**               | HeroUser는 IronMan 내부 구현을 몰라도 됨 (attack()만 알면 됨)        |
 
-`@ComponentScan`
+### 6.4 @ComponentScan
 
-- `@Component` 는 단지 "빈이 될 수 있다"는 의도로 실제 빈을 만들지는 않음
-- `@ComponentScan`을 통해 대상 빈을 scan 해야 빈으로 등록됨
+**역할**
+
+- `@Component`는 단지 "빈이 될 수 있다"는 의도로 실제 빈을 만들지는 않음
+- `@ComponentScan`을 통해 대상 빈을 scan해야 빈으로 등록됨
+- `@Configuration`이 사용된 클래스에 사용
+
+**주요 속성**
+
+- `basePackages`: component를 어디서 스캔할 것인가에 대한 정보
+  - 생략 시 현재 애너테이션이 사용된 클래스의 모든 하위 패키지 스캔
 
 ```java
 @Target(ElementType.TYPE)
@@ -448,39 +513,199 @@ public @interface ComponentScan {
 
 ---
 
+## 7. 스트레오타입 애너테이션
+
+### 7.1 @Component
+
+- 특별한 의미를 가지지 않은 단순히 '빈의 대상'임을 나타내는 애너테이션
+- 스트레오타입
+  - 용도에 따라 미리 여러 형태로 정형화 해놓은 타입
+  - 내부적으로 @Component 를 포함
+
+| annotation         | 설명                                                    |
+| :----------------- | :------------------------------------------------------ |
+| **@Repository**    | MVC에서 Model의 Repository(DAO) 계열 빈에 사용          |
+| **@Service**       | MVC에서 Model의 Service 계열의 빈에 사용                |
+| **@Controller**    | MVC에서 controller로 사용되는 빈에 사용                 |
+| **@Configuration** | java 기반의 메타정보 클래스에 사용                      |
+| **@Component**     | 다른 스테레오 타입 애너테이션에 해당되지 않을 경우 사용 |
+
+---
+
+## 8. DI 방법의 비교
+
+### 8.1 주입 방식 비교
+
+#### 생성자 주입
+
+- 가장 권장되는 방식
+- 일반적으로 field 를 blank final 로 선언하고 생성자 주입을 사용 -> 빈의 불변성 확보
+
+```java
+@Component
+public class A {
+    private final B b;
+    public A(B b) {this.b = b;}
+}
+```
+
+```java
+@Component
+@RequiredArgsConstructor
+public class B {
+    private final A a;
+    // public B(A a) {this.a = a;}
+}
+```
+
+- 혹시나 발생할 수 있는 빈의 순환 의존성 문제를 빈 생성 시점에 즉시 발견 가능
+
+#### Setter 주입
+
+- 선택적인 의존성을 가진 빈의 주입에 적합
+
+#### Field 주입
+
+- 비추
+- 코드가 가장 간결하지는 하지만 테스트 시 Mock 객체를 주입하기가 어렵고 빈의 불변성을 보장하기 힘듦
+- 단위테스트처럼 특별한 목적을 위해 작성될 경우에만 사용 권장
+
+### 8.2 설정 방식에 따른 DI 방법의 비교
+
+| 구분                              | 명시적 DI (Explicit DI)                                                        | 묵시적 DI (Implicit DI)                                                                                       |
+| :-------------------------------- | :----------------------------------------------------------------------------- | :------------------------------------------------------------------------------------------------------------ |
+| **관심사 분리**                   | 비즈니스 로직과 빈 관리 로직의 분리 가능<br>- 의존성 주입 코드가 명확하게 보임 | 비즈니스 로직과 빈 관리 로직의 결합<br>- 전체적인 빈의 구조를 파악하기 어려움<br>- 하지만 개발 툴이 잘 지원함 |
+| **설정 작성**                     | 빈 설정 코드가 별도로 관리되어야 함<br>- 의존성 주입 코드가 복잡해질 수 있음   | 개발자가 의존성 주입 코드를 작성하지 않아도 됨                                                                |
+| **외부 라이브러리를 빈으로 활용** | 가능                                                                           | 제한적                                                                                                        |
+
+-> 묵시적 DI 를 기본으로 하고 명시적 DI 를 보조적인 방식으로 사용
+
+---
+
+## 9. Appendix
+
+### 9.1 @Bean 메서드의 파라미터 자동 주입
+
+**특징**
+
+- `@Bean`에서 메서드의 파라미터는 자동으로 `@Autowired` 대체
+
+```java
+@Bean(name = "myWasherUser")
+public WasherUser washerUser() {
+    WasherUser washerUser = new WasherUser();
+    washerUser.setWasher(sWasher());
+    return washerUser;
+}
+```
+
+```java
+@Bean(name = "myWasherUser")
+public WasherUser washerUser(SWasher washer) {
+    WasherUser washerUser = new WasherUser();
+    washerUser.setWasher(washer);
+    return washerUser;
+}
+```
+
+### 9.2 @Value
+
+**역할**
+
+- 객체가 아닌 스칼라 값(문자열, 숫자 등)을 주입 받는데 사용
+
+```java
+@Target({ElementType.FIELD, ElementType.METHOD, ElementType.PARAMETER, ElementType.ANNOTATION_TYPE})
+public @interface Value {
+    String value();
+}
+```
+
+- 주로 설정 파일에 선언된 property 를 참조하는 경우 사용: ${} 내부에 property 이름 등록
+
+```java
+@Value("${java.specification.version}")
+int javaVersion;
+```
+
+---
+
 ## 📌 핵심 정리
 
 ### 의존성과 DI
 
-- **의존성**: 객체 간 has-a 관계
-- **DI**: 의존성을 외부에서 주입
-- **IoC**: 제어의 역전, 스프링이 객체 생명주기 관리
+- **의존성**: 객체 간 has-a 관계, "A는 B 없이 일을 못한다"
+- **DI (Dependency Injection)**: 의존성을 외부에서 주입
+- **IoC (Inversion of Control)**: 제어의 역전, 스프링이 객체 생명주기 관리
+- **스프링 빈**: 스프링 프레임워크에 의해 생성되고 관리되는 자바 객체
+- **POJO**: 평범한 자바 객체, 특별한 제약 없이 일반적인 자바 객체로 작성
 
 ### DI의 필요성
 
-- **강결합**: 직접 생성 → 유지보수 어려움
-- **느슨한 결합**: 주입 받기 → 유지보수 용이
+- **강결합 (Tight Coupling)**: 직접 생성(`new`) → 유지보수 어려움, 코드 수정 필요
+- **느슨한 결합 (Loose Coupling)**: 주입 받기 → 유지보수 용이, 코드 변경 최소화
 
 ### 명시적 DI
 
-- **@Configuration**: 설정 클래스 표시
-- **@Bean**: 빈 정의 메서드
+- **@Configuration**: 설정 클래스 표시, Java 기반 설정 파일
+- **@Bean**: 빈 정의 메서드, 메서드 이름 = 빈 이름
 - 생성자 주입을 통한 의존성 주입
+- `ApplicationContext`를 통해 빈 관리
+
+### Bean 생명주기
+
+- **7단계**: 컨테이너 생성 → 빈 생성 → 의존관계 주입 → 초기화 콜백 → 사용 → 소멸 콜백 → 종료
+- **초기화**: `@PostConstruct` (묵시적) 또는 `@Bean(initMethod)` (명시적)
+- **소멸**: `@PreDestroy` (묵시적) 또는 `@Bean(destroyMethod)` (명시적)
+
+### 묵시적 DI
+
+- **@Component**: 빈으로 사용할 클래스에 표시
+  - 기본 빈 이름: Pascal case → camel case (IronMan → ironMan)
+  - `value` 속성으로 재정의 가능
+- **@Autowired**: 빈 주입 어노테이션
+  - 타입 기반 주입, 같은 타입이 여러 개면 `@Qualifier` 사용
+  - 필드, 생성자, 메서드에 사용 가능
+  - 생성자 1개일 경우 생략 가능
+- **@ComponentScan**: `@Component`를 스캔하여 빈으로 등록
+  - `basePackages`로 스캔 범위 지정
+
+### 스트레오타입 애너테이션
+
+- **@Repository**: Repository(DAO) 계열 빈
+- **@Service**: Service 계열 빈
+- **@Controller**: Controller 계열 빈
+- **@Configuration**: Java 기반 메타정보 클래스
+- **@Component**: 위에 해당하지 않는 경우
+
+### DI 주입 방식 비교
+
+- **생성자 주입** (권장): 불변성 확보, 순환 의존성 조기 발견
+- **Setter 주입**: 선택적 의존성에 적합
+- **Field 주입**: 비추천, 테스트 어려움, 불변성 보장 힘듦
+
+### 명시적 DI vs 묵시적 DI
+
+- **명시적 DI**: 관심사 분리 가능, 외부 라이브러리 활용 가능, 설정 코드 복잡
+- **묵시적 DI**: 개발 편의성, 코드 간결, 전체 구조 파악 어려움
+- **권장**: 묵시적 DI를 기본으로, 명시적 DI를 보조적으로 사용
 
 ---
 
-## 📚 참고 자료
+## 📚 이 자료를 참고하시오 ..
 
 - 프로젝트: `backend/DI/FW_02/`
 - 주요 파일:
-  - `Washer.java` (Interface)
-  - `SWasher.java` (implements Washer)
-  - `LWasher.java` (implements Washer)
-  - `WasherUser.java`
-  - `WasherConfig.java` (설정 클래스)
-  - `WasherTest.java` (테스트 클래스)
-  - `com.study.live.washer/WasherTest.java`(테스트 파일)
-
-```
-
-```
+  - **Washer 패키지**:
+    - `com.study.live.washer.bean/Washer.java` (Interface)
+    - `com.study.live.washer.bean/SWasher.java` (implements Washer)
+    - `com.study.live.washer.bean/LWasher.java` (implements Washer)
+    - `com.study.live.washer.bean/WasherUser.java`
+    - `com.study.live.washer.config/WasherConfig.java` (설정 클래스)
+    - `com.study.live.washer/WasherTest.java` (테스트 파일)
+  - **Accessory 패키지**:
+    - `com.study.live.accessory.bean/Bag.java`
+    - `com.study.live.accessory.bean/Hat.java`
+    - `com.study.live.accessory.bean/SmartWatch.java`
+    - `com.study.live.accessory.bean/Watch.java`
+    - `com.study.live.accessory.config/BagConfig.java`
