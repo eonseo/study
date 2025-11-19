@@ -9,7 +9,12 @@ import java.util.Optional;
 
 public class MemberService {
 
-    private final MemberRepository memberRepository = new MemoryMemberRepository();
+    private final MemberRepository memberRepository;
+
+    // MemberService 를 만들 때 어떤 저장소(MemberRepository) 를 쓸지 외부에서 넣어주는 방식(생성자 주입)
+    public MemberService(MemberRepository memberRepsitory) {
+        this.memberRepository = memberRepsitory;
+    }
 
     /*
         회원가입
