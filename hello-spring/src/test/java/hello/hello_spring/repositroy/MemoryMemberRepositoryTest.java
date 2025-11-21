@@ -8,7 +8,6 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
-;
 import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
 
 // 모든 테스트는 순서가 보장이 안됨
