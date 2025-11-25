@@ -143,7 +143,7 @@ public class UserController {
 
 `Controller -> Service -> Repository -> Domain`
 
-# 2. Domain 계층 구현
+# 2. Repository 계층 구현
 
 `MemberRepository.java`
 
@@ -229,3 +229,73 @@ public Member save(Member member); // OK (하지만 불필요)
 
 - 유연성 확보: 나중에 HashMap 대신 TreeMap, LinkedHashMap 같은 다른 구현체로 바꿔도, 변수 타입을 Map 으로 해두면 코드 수정이 최소화됨
 - 상속/다형성 개념: 자바에서는 인터페이스 타입으로 선언하고, 구현체를 할당하는 게 흔한 패턴. 다형성을 활용할 수 있음
+
+# 3. Service 계층 구현
+
+## 의존성 주입받기
+
+- MemberService 는 생성자 주입을 사용하고 있다. 의존성 주입이란 객체가 사용할 의존 객체를 직접 생성하지 않고 외부에서 주입받는 방식을 말한다.
+
+### 의존성 주입이 필요한 이유
+
+- 유연성: MemberService 가 어떤 저장소(MemoryMemberRepository, JpaMemberRepository 등)를 쓸지 직접 결정하지 않고 외부에서 주입받음
+
+  - 나중에 구현체만 바꿔끼울 수 있음
+
+- 테스트 용이성: 테스트할 때는 가짜 저장소를 넣고, 실제 서비스에서는 DB 저장소를 넣을 수 있음
+
+- 스프링 컨테이너 관리: 스프링이 객체를 생성하고 관리하면서 필요한 의존성을 자동으로 연결해줌
+
+# 4. Test 구현
+
+## @Test 어노테이션 붙이는 이유
+
+- JUnit 같은 테스트 프레임워크가 해당 메서드를 "테스트 메서드"로 인식하도록 표시하기 위해서
+
+- 일반 메서드와 구분: 그냥 public void save() 라고만 하면 JUnit 은 이 메서드를 실행하지 않음
+- 자동 실행: IDE나 빌드 툴이 테스트를 실행할 때, @Test 가 붙은 메서드들을 자동으로 찾아 실행
+- 결과보고: 테스트가 성공/실패했는지 JUnit 이 결과를 수집해서 리포트 함
+
+## 동작 과정
+
+1. JUnit 이 클래스(MemoryMemberRepository 등)를 스캔
+2. `@Test` 가 붙은 메서드를 모두 찾아냄
+3. 각 메서드를 독립적으로 실행
+
+- 실행 전 후에 `@BeforeEach`, `@AfterEach` 같은 어노테이션이 붙은 메서드도 함께 실행됨
+- `assertThat(...)` 같은 검증 코드가 실패하면 테스트가 실패로 기록됨
+
+## 왜 Test 코드 리턴값은 모두 void 일까?
+
+- 테스트 메서드는 리턴값이 필요없음
+- 성공/실패는 Assertion 결과와 예외 발생 여부로 판단
+- 그래서 모든 JUnit 테스트 메서드는 기본적으로 void 를 씀
+
+## JUnit & AssertJ 검증 메서드 비교
+
+| 메서드                                     | 라이브러리 | 사용 예시                                                              | 설명                            |
+| ------------------------------------------ | ---------- | ---------------------------------------------------------------------- | ------------------------------- |
+| assertEquals(expected, actual)             | JUnit      | assertEquals("spring", member.getName());                              | 두 값이 같은지 비교             |
+| assertTrue(condition)                      | JUnit      | assertTrue(list.size() > 0);                                           | 조건이 참인지 확인              |
+| assertThrows(Exception.class, () -> {...}) | JUnit      | assertThrows(IllegalStateException.class, () -> service.join(member)); | 특정 예외가 발생하는지 검증     |
+| assertThat(actual).isEqualTo(expected)     | AssertJ    | assertThat(member).isEqualTo(result);                                  | 값이 같은지 검증 (가독성 ↑)     |
+| assertThat(list).hasSize(3)                | AssertJ    | assertThat(list).hasSize(3);                                           | 리스트 크기 검증                |
+| assertThat(list).contains("spring")        | AssertJ    | assertThat(list).contains("spring");                                   | 리스트에 특정 값 포함 여부 확인 |
+| assertThat(obj).isNotNull()                | AssertJ    | assertThat(member).isNotNull();                                        | 객체가 null이 아닌지 검증       |
+
+## 테스트에서 어떤 걸 선언해야 할까?
+
+- 테스트 대상: 테스트 클래스의 필드로 선언
+- 테스트 실행 전 초기화가 필요한 경우: `@BeforeEach`에서 새로 할당
+- 테스트 실행 후 정리가 필요한 경우: `@AfterEach` 에서 초기화/정리
+
+## IllegalStateException 이란?
+
+- Java 에서 제공하는 표준 런타임 예외 중 하나
+- 메서드를 호출할 수 없는 잘못된 상황에서 발생
+
+## given-when-then 패턴
+
+- given: 테스트의 준비 단계(데이터, 환경, 객체 생성)
+- when: 실제 실행 단계(테스트 대상 메서드 호출)
+- then: 결과 검증 단계(assertThat, assertThrows 등으로 확인)
